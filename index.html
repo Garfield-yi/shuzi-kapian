@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>得数卡片 · 数学卡片</title>
+<style>
+:root{
+  --canvas:#F4F1EA; --surface:#FFFDF7; --ink:#171717; --ink-muted:#6F706B;
+  --line:#C9C6BD; --voltage:#E6532F; --teal:#1C9A9A; --error:#B94A48;
+  --card-shadow:#D9D5CB; --overlay:rgba(23,23,23,.72);
+  --font:"Noto Sans SC","PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*,*::before,*::after{-webkit-box-sizing:border-box;box-sizing:border-box}
+[hidden]{display:none !important}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--canvas);color:var(--ink);
+  font-family:var(--font);font-size:15px;font-weight:500;line-height:1.5;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;
+  min-height:100vh;min-height:100dvh;
+}
+button{
+  font:inherit;color:inherit;background:none;border:0;margin:0;cursor:pointer;
+  font-variant-numeric:tabular-nums;-webkit-appearance:none;appearance:none;
+  -webkit-tap-highlight-color:transparent;
+}
+h1,h2,p{margin:0}
+.sprite{position:absolute;top:0;left:0;width:0;height:0;overflow:hidden}
+.ic{width:24px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic--sm{width:20px;height:20px}
+:focus{outline:2px solid var(--teal);outline-offset:4px}
+
+.screen{width:100%;min-height:100vh;min-height:100dvh;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column}
+
+/* ---------- SETUP ---------- */
+.setup{max-width:1120px;margin:0 auto;padding:24px 16px 32px}
+@media(min-width:768px){.setup{padding:40px 32px 56px}}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--ink-muted)}
+.display{font-size:34px;font-weight:700;line-height:.95;margin-top:12px}
+@media(min-width:768px){.display{font-size:64px}}
+.lede{margin-top:16px;color:var(--ink-muted);max-width:36em}
+.setup-body{margin-top:32px}
+@media(min-width:900px){
+  .setup-body{display:-webkit-flex;display:flex;-webkit-align-items:flex-start;align-items:flex-start;margin-top:56px}
+  .setup-col{width:50%}
+  .setup-col + .setup-col{margin-left:64px}
+}
+@media(max-width:899px){
+  .setup-col + .setup-col{margin-top:40px}
+}
+
+.specimens{display:-webkit-flex;display:flex;-webkit-align-items:flex-start;align-items:flex-start;margin-top:24px;max-width:520px}
+.cell{width:33.3333%;padding:5px}
+.cell.specimen{width:118px;-webkit-flex:none;flex:none}
+@media(min-width:768px){.cell.specimen{width:150px}}
+.cell.specimen + .cell.specimen{margin-left:16px}
+@media(min-width:768px){.cell.specimen + .cell.specimen{margin-left:18px}}
+.cell.specimen:nth-child(2){margin-top:22px}
+.cell.specimen:nth-child(3){margin-top:44px}
+@media(max-width:520px){
+  .cell.specimen{width:31%}
+  .cell.specimen + .cell.specimen{margin-left:0}
+}
+
+.field-group{border:0;padding:0;margin:0 0 32px}
+.field-legend{display:-webkit-flex;display:flex;-webkit-align-items:baseline;align-items:baseline;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--ink-muted);margin-bottom:12px}
+.field-hint{font-size:12px;font-weight:500;letter-spacing:0;color:var(--ink-muted);margin-left:12px}
+
+.mode-list{display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column}
+.mode{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;width:100%;text-align:left;padding:16px;min-height:88px;
+  border:2px solid var(--line);background:transparent;
+  -webkit-transition:border-color 120ms ease-out,background 120ms ease-out;transition:border-color 120ms ease-out,background 120ms ease-out}
+.mode + .mode{margin-top:12px}
+.mode__icon{margin-right:16px;color:var(--ink-muted);-webkit-transition:color 120ms ease-out;transition:color 120ms ease-out}
+.mode__title{font-size:20px;font-weight:700;line-height:1.1;display:block}
+.mode__desc{font-size:13px;font-weight:500;color:var(--ink-muted);margin-top:2px;display:block}
+.mode__arrow{margin-left:auto;color:var(--ink-muted);opacity:.55;-webkit-transition:opacity 120ms ease-out,color 120ms ease-out;transition:opacity 120ms ease-out,color 120ms ease-out}
+.mode[aria-pressed="true"]{border-color:var(--ink);background:var(--surface)}
+.mode[aria-pressed="true"] .mode__icon{color:var(--voltage)}
+.mode[aria-pressed="true"] .mode__arrow{opacity:1;color:var(--voltage)}
+
+.chips{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}
+.chip{position:relative;padding:12px 18px;min-height:48px;margin:0 12px 12px 0;border:2px solid var(--line);font-size:15px;font-weight:700;
+  -webkit-transition:border-color 120ms ease-out,background 120ms ease-out;transition:border-color 120ms ease-out,background 120ms ease-out}
+.chip[aria-pressed="true"]{border-color:var(--voltage);background:var(--surface)}
+.chip[aria-pressed="true"]::after{content:"";position:absolute;left:-2px;right:-2px;bottom:-2px;height:2px;background:var(--voltage)}
+
+.btn{display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;
+  min-height:52px;padding:14px 28px;font-size:17px;font-weight:700;border:2px solid var(--ink);background:var(--ink);color:var(--surface);
+  -webkit-transition:opacity 120ms ease-out;transition:opacity 120ms ease-out}
+.btn .ic{margin-left:8px}
+.btn:active{opacity:.82}
+.btn--ghost{background:transparent;color:var(--ink)}
+.btn--block{width:100%}
+.setup-foot{margin-top:32px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--ink-muted)}
+.setup-foot span + span{margin-left:16px}
+
+/* ---------- PLAY ---------- */
+.rail-top{-webkit-flex:none;flex:none;height:64px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:0 16px;border-bottom:1px solid var(--line)}
+@media(min-width:768px){.rail-top{height:72px;padding:0 32px}}
+.icon-btn{width:48px;height:48px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;border:2px solid transparent;
+  -webkit-transition:border-color 120ms ease-out;transition:border-color 120ms ease-out}
+.icon-btn:hover{border-color:var(--line)}
+.mode-label{font-size:12px;font-weight:700;letter-spacing:.04em;margin-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tele{margin-left:auto;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+.tele__item{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--ink-muted)}
+.tele__item + .tele__item{margin-left:16px}
+.tele__item .ic{margin-right:8px}
+.tele__num{font-size:15px;font-weight:700;color:var(--ink);margin-left:8px}
+.timer__num{font-size:22px;font-weight:700;line-height:1;min-width:2.3ch;text-align:right;color:var(--teal);margin-left:8px}
+.timer--danger .timer__num{color:var(--voltage)}
+.timer__track{width:56px;height:4px;background:var(--line);position:relative;overflow:hidden}
+@media(min-width:768px){.timer__track{width:88px}}
+.timer__fill{height:100%;width:100%;background:var(--teal);-webkit-transform-origin:left center;transform-origin:left center;
+  -webkit-transition:background 120ms ease-out;transition:background 120ms ease-out}
+.timer--danger .timer__fill{background:var(--voltage)}
+
+.field{-webkit-flex:1;flex:1;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;padding:24px 16px;overflow:auto}
+@media(min-width:768px){.field{padding:32px}}
+
+.target-band{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-align-self:stretch;align-self:stretch;
+  -webkit-justify-content:center;justify-content:center;padding-bottom:12px;margin-bottom:24px;border-bottom:2px solid var(--teal)}
+.target-band .label{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--ink-muted);margin-right:24px}
+.target-num{font-size:80px;font-weight:700;line-height:.9}
+@media(min-width:768px){.target-num{font-size:128px}}
+
+/* ---------- 卡片网格（flex，无 gap / 无 aspect-ratio） ---------- */
+.grid{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-justify-content:center;justify-content:center;
+  width:100%;max-width:440px}
+@media(min-width:700px){.grid{max-width:768px}}
+.cell{width:33.3333%;padding:5px}
+@media(min-width:700px){.cell{width:25%;padding:8px}}
+.grid.frozen{-webkit-filter:grayscale(1);filter:grayscale(1);pointer-events:none}
+
+/* ---------- 卡片：纸片质感（padding 占比高度，兼容老内核） ---------- */
+.card{
+  position:relative;display:block;width:100%;height:0;padding-bottom:69.2%;overflow:hidden;
+  background:#FFFDF7;
+  background-image:linear-gradient(178deg,#FFFFFF 0%,#FFFDF7 42%,#F7F2E9 100%);
+  border:2px solid var(--ink);border-radius:4px;
+  box-shadow:0 5px 0 var(--card-shadow),0 14px 22px -12px rgba(23,23,23,.35),
+    inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(23,23,23,.07);
+  -webkit-transition:opacity 220ms cubic-bezier(.22,1,.36,1),border-color 120ms ease-out,
+    box-shadow 120ms ease-out,-webkit-transform 120ms ease-out;
+  transition:opacity 220ms cubic-bezier(.22,1,.36,1),border-color 120ms ease-out,
+    box-shadow 120ms ease-out,transform 120ms ease-out;
+}
+/* 纸面极淡斜向纹理 */
+.card::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:2px;pointer-events:none;
+  background-image:repeating-linear-gradient(135deg,rgba(23,23,23,.05) 0 1px,rgba(255,255,255,0) 1px 6px);
+  opacity:.6;
+}
+/* 印刷裁切角标 */
+.card::before{
+  content:"";position:absolute;top:7px;left:7px;width:13px;height:13px;
+  border-top:2px solid var(--voltage);border-left:2px solid var(--voltage);
+  opacity:.75;-webkit-transition:opacity 120ms ease-out,border-color 120ms ease-out;transition:opacity 120ms ease-out,border-color 120ms ease-out;
+}
+.cell:nth-child(3n) .card::before{
+  top:auto;bottom:7px;left:auto;right:7px;
+  border-top:0;border-left:0;border-bottom:2px solid var(--voltage);border-right:2px solid var(--voltage);
+}
+.card__expr{
+  position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;
+  display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;
+  font-size:22px;font-weight:700;line-height:1;letter-spacing:.01em;
+}
+@media(min-width:400px){.card__expr{font-size:25px}}
+@media(min-width:700px){.card__expr{font-size:32px}}
+.card__check{position:absolute;top:6px;right:6px;z-index:1;color:var(--teal);opacity:0;
+  -webkit-transform:scale(.7);transform:scale(.7);-webkit-transform-origin:top right;transform-origin:top right;
+  -webkit-transition:opacity 160ms ease-out,transform 180ms cubic-bezier(.22,1,.36,1);transition:opacity 160ms ease-out,transform 180ms cubic-bezier(.22,1,.36,1)}
+@media(hover:hover){
+  .card:hover{-webkit-transform:translateY(-2px);transform:translateY(-2px);
+    box-shadow:0 7px 0 var(--card-shadow),0 18px 26px -12px rgba(23,23,23,.38),
+      inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(23,23,23,.07)}
+  .card:hover::before{opacity:1}
+}
+.card:active{-webkit-transform:translateY(2px);transform:translateY(2px);
+  box-shadow:0 2px 0 var(--card-shadow),0 6px 12px -10px rgba(23,23,23,.4),
+    inset 0 1px 0 rgba(255,255,255,.9),inset 0 0 0 1px rgba(23,23,23,.1)}
+.card.selected{
+  border-color:var(--voltage);-webkit-transform:translateY(-2px);transform:translateY(-2px);
+  box-shadow:0 7px 0 var(--card-shadow),0 18px 26px -12px rgba(230,83,47,.35),
+    inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(230,83,47,.28)}
+.card.selected::before{opacity:1}
+.card.matched{border-color:var(--teal);
+  box-shadow:0 5px 0 var(--card-shadow),0 14px 22px -12px rgba(28,154,154,.35),
+    inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(28,154,154,.25)}
+.card.matched::before{opacity:1;border-color:var(--teal)}
+.card.matched .card__check{opacity:1;-webkit-transform:scale(1);transform:scale(1)}
+.card.clearing{opacity:0;-webkit-transform:translateY(-8px) scale(.93);transform:translateY(-8px) scale(.93)}
+.card.wrong{-webkit-animation:shake 180ms linear;animation:shake 180ms linear;border-color:var(--error)}
+.card.wrong::before{border-color:var(--error);opacity:1}
+@-webkit-keyframes shake{0%{-webkit-transform:translateX(0)}25%{-webkit-transform:translateX(-4px)}75%{-webkit-transform:translateX(4px)}100%{-webkit-transform:translateX(0)}}
+@keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}100%{transform:translateX(0)}}
+
+.rail-bottom{-webkit-flex:none;flex:none;min-height:72px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:12px 16px;border-top:1px solid var(--line)}
+@media(min-width:768px){.rail-bottom{padding:12px 32px}}
+.progress{-webkit-flex:1;flex:1;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;max-width:340px;margin-right:16px}
+.progress__text{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--ink-muted);margin-bottom:6px}
+.progress__track{height:4px;background:var(--line)}
+.progress__fill{height:100%;width:0;background:var(--teal);-webkit-transition:width 220ms ease-out;transition:width 220ms ease-out}
+.icon-btn + .icon-btn{margin-left:8px}
+
+/* ---------- OVERLAY ---------- */
+.overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:20;background:var(--overlay);
+  display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;padding:24px}
+.modal{width:100%;max-width:420px;background:var(--canvas);border:2px solid var(--ink);padding:32px 24px;
+  -webkit-animation:modalIn 220ms ease-out both;animation:modalIn 220ms ease-out both}
+@media(min-width:768px){.modal{padding:32px}}
+@-webkit-keyframes modalIn{from{opacity:0;-webkit-transform:translateY(12px) scale(.96)}to{opacity:1;-webkit-transform:none}}
+@keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
+.modal__icon{width:56px;height:56px;stroke-width:2;fill:none;stroke:var(--voltage);margin-bottom:16px}
+.modal--teal .modal__icon{stroke:var(--teal)}
+.modal__title{font-size:32px;font-weight:700;line-height:1}
+@media(min-width:520px){.modal__title{font-size:40px}}
+.modal__copy{margin-top:12px;color:var(--ink-muted)}
+.modal__stat{margin-top:16px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--ink-muted)}
+.modal__actions{margin-top:32px;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column}
+.modal__actions .btn + .btn{margin-top:12px}
+@media(min-width:520px){
+  .modal__actions{-webkit-flex-direction:row;flex-direction:row}
+  .modal__actions .btn{-webkit-flex:1;flex:1}
+  .modal__actions .btn + .btn{margin-top:0;margin-left:12px}
+}
+
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{-webkit-animation-duration:.001ms !important;animation-duration:.001ms !important;
+    -webkit-animation-iteration-count:1 !important;animation-iteration-count:1 !important;
+    -webkit-transition-duration:.001ms !important;transition-duration:.001ms !important}
+  .grid.frozen{-webkit-filter:none;filter:none}
+}
+</style>
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false"><defs>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5 19 12 7 19.5Z"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13M14 5l3 3-3 3M20 16H7M10 13l-3 3 3 3"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/><path d="M12 3v18M3 12h18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.2 2"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</defs></svg>
+
+<main class="app">
+
+  <!-- ============ SETUP ============ -->
+  <section class="screen setup" id="screen-setup">
+    <p class="eyebrow">数学卡片 · 数值匹配</p>
+    <h1 class="display">得数卡片</h1>
+    <p class="lede">找出得数相同的卡片，完成消除。</p>
+
+    <div class="setup-body">
+      <div class="setup-col">
+        <div class="specimens" aria-hidden="true">
+          <div class="cell specimen"><div class="card"><span class="card__expr">0+0</span></div></div>
+          <div class="cell specimen"><div class="card"><span class="card__expr">5+0</span></div></div>
+          <div class="cell specimen"><div class="card matched"><span class="card__expr">3+2</span>
+            <span class="card__check"><svg class="ic ic--sm"><use xlink:href="#i-check"/></svg></span>
+          </div></div>
+        </div>
+        <div class="setup-foot">
+          <span>两种模式</span><span>四档难度</span><span>三档计时</span><span>PC / 移动端自适应</span>
+        </div>
+      </div>
+
+      <div class="setup-col">
+        <fieldset class="field-group">
+          <legend class="field-legend">模式 <span class="field-hint">选择玩法</span></legend>
+          <div class="mode-list">
+            <button class="mode" type="button" data-mode="match" aria-pressed="true">
+              <svg class="ic mode__icon"><use xlink:href="#i-swap"/></svg>
+              <span>
+                <span class="mode__title">配对消除</span>
+                <span class="mode__desc">找出得数相同的卡片，找齐后消除</span>
+              </span>
+              <svg class="ic mode__arrow"><use xlink:href="#i-arrow"/></svg>
+            </button>
+            <button class="mode" type="button" data-mode="target" aria-pressed="false">
+              <svg class="ic mode__icon"><use xlink:href="#i-target"/></svg>
+              <span>
+                <span class="mode__title">目标搜寻</span>
+                <span class="mode__desc">根据给定得数，找出所有对应卡片</span>
+              </span>
+              <svg class="ic mode__arrow"><use xlink:href="#i-arrow"/></svg>
+            </button>
+          </div>
+        </fieldset>
+
+        <fieldset class="field-group">
+          <legend class="field-legend">难度 <span class="field-hint">选择算式范围</span></legend>
+          <div class="chips" id="chips-limit">
+            <button class="chip" type="button" data-limit="5" aria-pressed="false">5以内加减</button>
+            <button class="chip" type="button" data-limit="10" aria-pressed="true">10以内加减</button>
+            <button class="chip" type="button" data-limit="15" aria-pressed="false">15以内加减</button>
+            <button class="chip" type="button" data-limit="20" aria-pressed="false">20以内加减</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="field-group">
+          <legend class="field-legend">时间 <span class="field-hint">每次成功后重新计时，超时即结束</span></legend>
+          <div class="chips" id="chips-time">
+            <button class="chip" type="button" data-time="20" aria-pressed="false">简单 20秒</button>
+            <button class="chip" type="button" data-time="10" aria-pressed="true">标准 10秒</button>
+            <button class="chip" type="button" data-time="5" aria-pressed="false">困难 5秒</button>
+          </div>
+        </fieldset>
+
+        <button class="btn btn--block" type="button" id="btn-start">
+          开始 <svg class="ic ic--sm"><use xlink:href="#i-play"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PLAY ============ -->
+  <section class="screen play" id="screen-play" hidden>
+    <div class="rail-top">
+      <button class="icon-btn" type="button" id="btn-back" aria-label="返回设置">
+        <svg class="ic"><use xlink:href="#i-back"/></svg>
+      </button>
+      <span class="mode-label" id="mode-label">配对消除 · 10以内加减</span>
+      <div class="tele">
+        <span class="tele__item">移动<span class="tele__num" id="moves">0</span></span>
+        <div class="timer tele__item" id="timer">
+          <svg class="ic ic--sm"><use xlink:href="#i-clock"/></svg>
+          <span class="timer__num" id="timer-num">10</span>
+          <div class="timer__track"><div class="timer__fill" id="timer-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="target-band" id="target-band" hidden>
+        <span class="label">找得数</span>
+        <span class="target-num" id="target-num">7</span>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="rail-bottom">
+      <div class="progress">
+        <span class="progress__text" id="progress-text">已消除 0 / 6 对</span>
+        <div class="progress__track"><div class="progress__fill" id="progress-fill"></div></div>
+      </div>
+      <button class="icon-btn" type="button" id="btn-pause" aria-label="暂停">
+        <svg class="ic"><use xlink:href="#i-pause"/></svg>
+      </button>
+      <button class="icon-btn" type="button" id="btn-restart" aria-label="重新开始">
+        <svg class="ic"><use xlink:href="#i-restart"/></svg>
+      </button>
+    </div>
+  </section>
+
+</main>
+
+<div class="overlay" id="overlay-result" hidden>
+  <div class="modal" id="result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
+    <svg class="modal__icon" id="result-icon"><use xlink:href="#i-check"/></svg>
+    <h2 class="modal__title" id="result-title">全部完成</h2>
+    <p class="modal__copy" id="result-copy">你找到了所有卡片。</p>
+    <p class="modal__stat" id="result-stat"></p>
+    <div class="modal__actions">
+      <button class="btn" type="button" id="btn-again">再玩一次</button>
+      <button class="btn btn--ghost" type="button" id="btn-tosetup">返回设置</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-pause" hidden>
+  <div class="modal modal--teal" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <svg class="modal__icon"><use xlink:href="#i-pause"/></svg>
+    <h2 class="modal__title" id="pause-title">已暂停</h2>
+    <p class="modal__copy">计时已停止，随时可以继续。</p>
+    <div class="modal__actions">
+      <button class="btn" type="button" id="btn-resume">继续</button>
+      <button class="btn btn--ghost" type="button" id="btn-pause-restart">重新开始</button>
+      <button class="btn btn--ghost" type="button" id="btn-pause-setup">返回设置</button>
+    </div>
+  </div>
+</div>
+
+<p class="sr" id="live" aria-live="polite"></p>
+
+<script>
+(function(){
+  "use strict";
+
+  var $ = function(s){ return document.querySelector(s); };
+  var PAIRS = 6;
+  var TOTAL_CARDS = 12;
+  var ROUNDS = 5;
+
+  var state = {
+    mode:"match", limit:10, seconds:10,
+    cards:[], selected:[], moves:0, pairsCleared:0,
+    round:1, target:0, matchCount:0, found:0,
+    running:false, paused:false, locked:false, ended:false,
+    endAt:0, remain:0, tick:null, lastWarn:-1
+  };
+
+  function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+  function shuffle(a){
+    for(var i=a.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var t=a[i]; a[i]=a[j]; a[j]=t;
+    }
+    return a;
+  }
+  function say(msg){ $("#live").innerHTML = msg; }
+  function addClass(el,c){
+    if((" "+el.className+" ").indexOf(" "+c+" ")<0) el.className += " " + c;
+  }
+  function removeClass(el,c){
+    el.className = (" "+el.className+" ").replace(" "+c+" "," ").replace(/^\s+|\s+$/g,"");
+  }
+  function byId(id){ return document.getElementById(id); }
+
+  /* ---------- 算式生成 ---------- */
+  function allExprs(limit){
+    var out=[],a,b;
+    for(a=0;a<=limit;a++){
+      for(b=0;b<=limit;b++){
+        if(a+b<=limit) out.push({text:a+"+"+b, value:a+b});
+        if(a-b>=0)  out.push({text:a+"-"+b, value:a-b});
+      }
+    }
+    return out;
+  }
+  function groupByValue(list){
+    var m={};
+    for(var i=0;i<list.length;i++){
+      var v=list[i].value;
+      if(!m[v]) m[v]=[];
+      m[v].push(list[i].text);
+    }
+    return m;
+  }
+  function buildMatchRound(){
+    var groups = groupByValue(allExprs(state.limit));
+    var values = shuffle(Object.keys(groups).map(Number));
+    var cards = [];
+    for(var i=0;i<values.length && cards.length<PAIRS*2;i++){
+      var v = values[i];
+      var texts = shuffle(groups[v].slice());
+      if(texts.length<2) continue;
+      cards.push({text:texts[0], value:v});
+      cards.push({text:texts[1], value:v});
+    }
+    return shuffle(cards);
+  }
+  function buildTargetRound(){
+    var all = shuffle(allExprs(state.limit));
+    var groups = groupByValue(all);
+    var eligible = Object.keys(groups).map(Number).filter(function(v){ return groups[v].length>=3; });
+    var target = pick(eligible);
+    var want = 3 + Math.floor(Math.random()*2);
+    var matched = all.filter(function(e){ return e.value===target; }).slice(0, want);
+    var rest = all.filter(function(e){ return e.value!==target; }).slice(0, TOTAL_CARDS - matched.length);
+    return { cards: shuffle(matched.concat(rest)), target: target, matchCount: matched.length };
+  }
+
+  /* ---------- 渲染 ---------- */
+  function renderCards(cards){
+    var grid = byId("grid");
+    removeClass(grid,"frozen");
+    grid.innerHTML = "";
+    state.cards = [];
+    for(var i=0;i<cards.length;i++){
+      (function(c){
+        var cell = document.createElement("div");
+        cell.className = "cell";
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "card";
+        b.setAttribute("aria-label", "卡片 " + c.text);
+        b.innerHTML = '<span class="card__expr">'+c.text+'</span>' +
+                      '<span class="card__check"><svg class="ic ic--sm"><use xlink:href="#i-check"/></svg></span>';
+        var item = { text:c.text, value:c.value, el:b, cell:cell, status:"idle" };
+        b.onclick = function(){ onCardTap(item); };
+        cell.appendChild(b);
+        grid.appendChild(cell);
+        state.cards.push(item);
+      })(cards[i]);
+    }
+  }
+
+  /* ---------- HUD ---------- */
+  function updateHUD(){
+    byId("moves").innerHTML = state.moves;
+    var text, pct;
+    if(state.mode==="match"){
+      text = "已消除 " + state.pairsCleared + " / " + PAIRS + " 对";
+      pct = state.pairsCleared / PAIRS;
+    }else{
+      text = "第 " + state.round + " / " + ROUNDS + " 题 · 已找到 " + state.found + " / " + state.matchCount;
+      pct = ((state.round - 1) + (state.matchCount ? state.found/state.matchCount : 0)) / ROUNDS;
+    }
+    byId("progress-text").innerHTML = text;
+    byId("progress-fill").style.width = Math.max(0, Math.min(1, pct)) * 100 + "%";
+  }
+
+  function updateTimerUI(){
+    var total = state.seconds * 1000;
+    var remain = Math.max(0, state.remain);
+    var secs = Math.ceil(remain/1000);
+    byId("timer-num").innerHTML = secs;
+    var f = byId("timer-fill");
+    f.style.webkitTransform = "scaleX(" + (total ? remain/total : 0) + ")";
+    f.style.transform = "scaleX(" + (total ? remain/total : 0) + ")";
+    if(remain <= 3000){ addClass(byId("timer"),"timer--danger"); }
+    else { removeClass(byId("timer"),"timer--danger"); }
+    if(remain <= 3000 && secs !== state.lastWarn){
+      state.lastWarn = secs;
+      say("还剩 " + secs + " 秒");
+    }
+  }
+
+  /* ---------- 计时 ---------- */
+  function startTimer(){
+    state.remain = state.seconds * 1000;
+    state.endAt = (new Date()).getTime() + state.remain;
+    state.lastWarn = -1;
+    updateTimerUI();
+    if(state.tick) clearInterval(state.tick);
+    state.tick = setInterval(function(){
+      if(!state.running || state.paused) return;
+      state.remain = state.endAt - (new Date()).getTime();
+      updateTimerUI();
+      if(state.remain <= 0){
+        state.remain = 0; updateTimerUI();
+        endGame("timeout");
+      }
+    }, 100);
+    state.running = true;
+    state.paused = false;
+    state.ended = false;
+  }
+  function resetTimer(){
+    state.remain = state.seconds * 1000;
+    state.endAt = (new Date()).getTime() + state.remain;
+    state.lastWarn = -1;
+    updateTimerUI();
+  }
+  function stopTimer(){
+    if(state.tick){ clearInterval(state.tick); state.tick = null; }
+    state.running = false;
+  }
+  function pauseTimer(){
+    if(!state.running || state.paused) return;
+    state.remain = Math.max(0, state.endAt - (new Date()).getTime());
+    state.paused = true;
+    byId("overlay-pause").hidden = false;
+    say("已暂停");
+  }
+  function resumeTimer(){
+    if(!state.paused) return;
+    state.endAt = (new Date()).getTime() + state.remain;
+    state.paused = false;
+    byId("overlay-pause").hidden = true;
+    say("继续游戏");
+  }
+
+  /* ---------- 交互 ---------- */
+  function onCardTap(card){
+    if(!state.running || state.paused || state.ended || state.locked) return;
+    if(card.status === "matched") return;
+
+    if(state.mode === "match"){
+      if(card.status === "selected"){
+        card.status = "idle";
+        removeClass(card.el,"selected");
+        state.selected = state.selected.filter(function(c){ return c !== card; });
+        return;
+      }
+      card.status = "selected";
+      addClass(card.el,"selected");
+      state.selected.push(card);
+
+      if(state.selected.length === 2){
+        state.moves++;
+        state.locked = true;
+        var a = state.selected[0], b = state.selected[1];
+        if(a.value === b.value){
+          setTimeout(function(){
+            addClass(a.el,"matched"); addClass(b.el,"matched");
+            setTimeout(function(){
+              addClass(a.el,"clearing"); addClass(b.el,"clearing");
+              setTimeout(function(){
+                if(a.cell.parentNode) a.cell.parentNode.removeChild(a.cell);
+                if(b.cell.parentNode) b.cell.parentNode.removeChild(b.cell);
+              }, 230);
+            }, 220);
+            state.pairsCleared++;
+            state.selected = [];
+            state.locked = false;
+            resetTimer();
+            updateHUD();
+            say("配对成功");
+            if(state.pairsCleared >= PAIRS){
+              setTimeout(function(){ endGame("win"); }, 460);
+            }
+          }, 150);
+        }else{
+          setTimeout(function(){
+            addClass(a.el,"wrong"); addClass(b.el,"wrong");
+          }, 60);
+          setTimeout(function(){
+            [a,b].forEach(function(c){
+              c.status = "idle";
+              removeClass(c.el,"selected");
+              removeClass(c.el,"wrong");
+            });
+            state.selected = [];
+            state.locked = false;
+            updateHUD();
+            say("得数不同，请再试一次");
+          }, 420);
+        }
+        updateHUD();
+      }
+      return;
+    }
+
+    /* 目标搜寻 */
+    state.moves++;
+    if(card.value === state.target){
+      card.status = "matched";
+      addClass(card.el,"matched");
+      state.found++;
+      resetTimer();
+      updateHUD();
+      say("找到一张");
+      if(state.found >= state.matchCount){
+        setTimeout(function(){
+          if(state.round >= ROUNDS) endGame("win");
+          else nextRound();
+        }, 420);
+      }
+    }else{
+      addClass(card.el,"wrong");
+      (function(el){
+        setTimeout(function(){
+          if(el) removeClass(el,"wrong");
+        }, 420);
+      })(card.el);
+      updateHUD();
+    }
+  }
+
+  /* ---------- 回合 ---------- */
+  function startRound(){
+    state.selected = [];
+    state.locked = false;
+    if(state.mode === "match"){
+      byId("target-band").hidden = true;
+      renderCards(buildMatchRound());
+    }else{
+      var r = buildTargetRound();
+      state.target = r.target;
+      state.matchCount = r.matchCount;
+      state.found = 0;
+      byId("target-num").innerHTML = r.target;
+      byId("target-band").hidden = false;
+      renderCards(r.cards);
+    }
+    updateHUD();
+  }
+
+  function nextRound(){
+    state.round++;
+    startRound();
+    resetTimer();
+    say("下一题");
+  }
+
+  function startGame(){
+    state.moves = 0;
+    state.pairsCleared = 0;
+    state.round = 1;
+    byId("screen-setup").hidden = true;
+    byId("screen-play").hidden = false;
+    byId("overlay-result").hidden = true;
+    byId("overlay-pause").hidden = true;
+    byId("mode-label").innerHTML =
+      (state.mode === "match" ? "配对消除" : "目标搜寻") + " · " + state.limit + "以内加减 · " + state.seconds + "秒/次";
+    startRound();
+    startTimer();
+    say("游戏开始");
+  }
+
+  function endGame(kind){
+    if(state.ended) return;
+    state.ended = true;
+    stopTimer();
+    if(kind === "timeout"){
+      addClass(byId("grid"),"frozen");
+      byId("result-icon").innerHTML = '<use xlink:href="#i-clock"/>';
+      removeClass(byId("result-modal"),"modal--teal");
+      byId("result-title").innerHTML = "时间到";
+      byId("result-copy").innerHTML = "这轮练习结束了。";
+      byId("btn-again").innerHTML = "重新挑战";
+      say("时间到，这轮练习结束了");
+    }else{
+      byId("result-icon").innerHTML = '<use xlink:href="#i-check"/>';
+      addClass(byId("result-modal"),"modal--teal");
+      byId("result-title").innerHTML = "全部完成";
+      byId("result-copy").innerHTML = "你找到了所有卡片。";
+      byId("btn-again").innerHTML = "再玩一次";
+      say("全部完成，你找到了所有卡片");
+    }
+    byId("result-stat").innerHTML =
+      (state.mode === "match" ? "消除 " + state.pairsCleared + " 对" : "完成 " + state.round + " 题") +
+      " · 移动 " + state.moves + " 次";
+    setTimeout(function(){ byId("overlay-result").hidden = false; }, kind === "timeout" ? 140 : 480);
+  }
+
+  function toSetup(){
+    stopTimer();
+    state.paused = false;
+    byId("overlay-pause").hidden = true;
+    byId("overlay-result").hidden = true;
+    byId("screen-play").hidden = true;
+    byId("screen-setup").hidden = false;
+  }
+
+  /* ---------- 绑定 ---------- */
+  var modes = document.querySelectorAll(".mode");
+  Array.prototype.forEach.call(modes, function(btn){
+    btn.onclick = function(){
+      Array.prototype.forEach.call(modes, function(b){ b.setAttribute("aria-pressed","false"); });
+      btn.setAttribute("aria-pressed","true");
+      state.mode = btn.getAttribute("data-mode");
+    };
+  });
+
+  function bindChips(id, attr, apply){
+    var chips = document.querySelectorAll("#" + id + " .chip");
+    Array.prototype.forEach.call(chips, function(btn){
+      btn.onclick = function(){
+        Array.prototype.forEach.call(chips, function(b){ b.setAttribute("aria-pressed","false"); });
+        btn.setAttribute("aria-pressed","true");
+        apply(btn.getAttribute(attr));
+      };
+    });
+  }
+  bindChips("chips-limit","data-limit", function(v){ state.limit = parseInt(v,10); });
+  bindChips("chips-time","data-time", function(v){ state.seconds = parseInt(v,10); });
+
+  byId("btn-start").onclick = startGame;
+  byId("btn-back").onclick = toSetup;
+  byId("btn-restart").onclick = startGame;
+  byId("btn-pause").onclick = pauseTimer;
+  byId("btn-resume").onclick = resumeTimer;
+  byId("btn-pause-restart").onclick = function(){ byId("overlay-pause").hidden = true; startGame(); };
+  byId("btn-pause-setup").onclick = toSetup;
+  byId("btn-again").onclick = startGame;
+  byId("btn-tosetup").onclick = toSetup;
+
+  document.addEventListener("keydown", function(e){
+    var key = e.key || e.keyCode;
+    if(key === "Escape" || key === 27){
+      if(!byId("screen-play").hidden){
+        if(!byId("overlay-result").hidden){ toSetup(); }
+        else if(state.paused){ resumeTimer(); }
+        else if(state.running){ pauseTimer(); }
+      }
+    }
+  });
+
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden && state.running && !state.paused && !state.ended) pauseTimer();
+  });
+
+})();
+</script>
+</body>
+</html>
